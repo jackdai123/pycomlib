@@ -1,11 +1,9 @@
 import pika
-import json
-from Queue import Queue
 
 class Publisher(object):
-	def __init__(self, host='localhost', port=5672, username='guest', password='guest', heartbeat_interval=3, connection_attempts=9999, retry_delay=1, socket_timeout=3,
+	def __init__(self, host='localhost', port=5672, username='guest', password='guest', heartbeat_interval=60, connection_attempts=9999, retry_delay=1, socket_timeout=3,
 			exchange='exchange', exchange_type='topic', exchange_durable=True, exchange_auto_delete=False,
-			queue='queue', queue_durable=True, queue_auto_delete=False, queue_ttl=0, routing_key='#', no_ack=True):
+			queue='queue', queue_durable=True, queue_auto_delete=False, queue_ttl=0, routing_key='#', no_ack=True, publish_queue=None):
 		self.host = host
 		self.port = port
 		self.username = username
@@ -24,14 +22,13 @@ class Publisher(object):
 		self.queue_ttl = queue_ttl
 		self.routing_key = routing_key
 		self.no_ack = no_ack
-		self.publish_queue = Queue()
-		self.publish_content = ''
+		self.publish_queue = publish_queue
 		self._connection = None
 		self._channel = None
 		self._acked = 0
 		self._nacked = 0
-		self._stopping = False
-		self._closing = False
+		self._stopping = True
+		self._closing = True
 
 	def connect(self):
 		parameters = pika.ConnectionParameters(
@@ -49,6 +46,7 @@ class Publisher(object):
 				stop_ioloop_on_close = False)
 
 	def on_connection_open(self, unused_connection):
+		self._closing = False
 		self.add_on_connection_close_callback()
 		self.open_channel()
 
@@ -120,6 +118,7 @@ class Publisher(object):
 		self.start_publishing()
 
 	def start_publishing(self):
+		self._stopping = False
 		if self.no_ack == False:
 			self.enable_delivery_confirmations()
 		self.schedule_next_message()
@@ -136,7 +135,7 @@ class Publisher(object):
 
 	def schedule_next_message(self):
 		while 1:
-			if self._stopping:
+			if self._stopping or not self._channel:
 				return
 
 			self._channel.basic_publish(
@@ -144,12 +143,10 @@ class Publisher(object):
 					routing_key = self.routing_key,
 					body = self.publish_queue.get())
 
-	def publish(self, content):
-		self.publish_queue.put(content)
-
 	def close_channel(self):
 		if self._channel:
 			self._channel.close()
+			self._channel = None
 
 	def run(self):
 		self._connection = self.connect()
@@ -163,7 +160,9 @@ class Publisher(object):
 
 	def close_connection(self):
 		self._closing = True
-		self._connection.close()
+		if self._connection:
+			self._connection.close()
+			self._connection = None
 
 def main():
 	value_publisher = Publisher(exchange='fss_exchange', queue='storage.value', queue_ttl=600, routing_key='fss.value.#')
