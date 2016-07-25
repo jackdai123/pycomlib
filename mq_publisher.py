@@ -1,7 +1,7 @@
 import pika
 
 class Publisher(object):
-	def __init__(self, host='localhost', port=5672, username='guest', password='guest', heartbeat_interval=60, connection_attempts=9999, retry_delay=1, socket_timeout=3,
+	def __init__(self, host='localhost', port=5672, username='guest', password='guest', heartbeat_interval=0, connection_attempts=9999, retry_delay=1, socket_timeout=3,
 			exchange='exchange', exchange_type='topic', exchange_durable=True, exchange_auto_delete=False,
 			queue='queue', queue_durable=True, queue_auto_delete=False, queue_ttl=0, routing_key='#', no_ack=True, publish_queue=None):
 		self.host = host
