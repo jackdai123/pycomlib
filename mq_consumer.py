@@ -60,7 +60,10 @@ class Consumer(object):
 			self._connection.ioloop.start()
 
 	def open_channel(self):
-		self._connection.channel(on_open_callback=self.on_channel_open)
+		try:
+			self._connection.channel(on_open_callback=self.on_channel_open)
+		except Exception as e:
+			pass
 
 	def on_channel_open(self, channel):
 		self._channel = channel
@@ -74,12 +77,15 @@ class Consumer(object):
 		self._connection.close()
 
 	def setup_exchange(self):
-		self._channel.exchange_declare(
-				callback = self.on_exchange_declareok,
-				exchange = self.exchange,
-				exchange_type = self.exchange_type,
-				durable = self.exchange_durable,
-				auto_delete = self.exchange_auto_delete)
+		try:
+			self._channel.exchange_declare(
+					callback = self.on_exchange_declareok,
+					exchange = self.exchange,
+					exchange_type = self.exchange_type,
+					durable = self.exchange_durable,
+					auto_delete = self.exchange_auto_delete)
+		except Exception as e:
+			pass
 
 	def on_exchange_declareok(self, unused_frame):
 		self.setup_queue()
@@ -88,29 +94,38 @@ class Consumer(object):
 		arguments = {}
 		if self.queue_ttl > 0:
 			arguments['x-message-ttl'] = self.queue_ttl * 1000
-		self._channel.queue_declare(
-				callback = self.on_queue_declareok,
-				queue = self.queue,
-				durable = self.queue_durable,
-				auto_delete = self.queue_auto_delete,
-				arguments = arguments)
+		try:
+			self._channel.queue_declare(
+					callback = self.on_queue_declareok,
+					queue = self.queue,
+					durable = self.queue_durable,
+					auto_delete = self.queue_auto_delete,
+					arguments = arguments)
+		except Exception as e:
+			pass
 
 	def on_queue_declareok(self, method_frame):
-		self._channel.queue_bind(
-				callback = self.on_bindok,
-				queue = self.queue,
-				exchange = self.exchange,
-				routing_key = self.routing_key)
+		try:
+			self._channel.queue_bind(
+					callback = self.on_bindok,
+					queue = self.queue,
+					exchange = self.exchange,
+					routing_key = self.routing_key)
+		except Exception as e:
+			pass
 
 	def on_bindok(self, unused_frame):
 		self.start_consuming()
 
 	def start_consuming(self):
 		self.add_on_cancel_callback()
-		self._consumer_tag = self._channel.basic_consume(
-				consumer_callback = self.on_message,
-				queue = self.queue,
-				no_ack = self.no_ack)
+		try:
+			self._consumer_tag = self._channel.basic_consume(
+					consumer_callback = self.on_message,
+					queue = self.queue,
+					no_ack = self.no_ack)
+		except Exception as e:
+			pass
 
 	def add_on_cancel_callback(self):
 		self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
@@ -151,7 +166,7 @@ class Consumer(object):
 		self._connection.close()
 
 def process_value(unused_channel, basic_deliver, properties, body):
-	print body
+	print unused_channel, basic_deliver, properties, body
 	
 def main():
 	value_consumer = Consumer(exchange='fss_exchange', queue='storage.value', queue_ttl=600, routing_key='fss.value.#', handle_message=process_value)
